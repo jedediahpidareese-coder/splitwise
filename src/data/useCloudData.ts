@@ -3,7 +3,7 @@ import type { User } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 import type { Expense, Profile, Settlement } from '../types'
 import type { ExpenseStore, NewExpenseInput, Session } from './storeTypes'
-import { computeBalance } from '../lib/balance'
+import { computeBalance, netOfExpenses } from '../lib/balance'
 import { formatCurrency } from '../lib/format'
 import { notifyOther } from '../lib/push'
 
@@ -28,6 +28,7 @@ interface SettlementRow {
   to_id: string
   requested_by: string
   status: Settlement['status']
+  expense_ids: string[] | null
   created_at: string
   approved_at: string | null
 }
@@ -59,6 +60,7 @@ function toSettlement(r: SettlementRow): Settlement {
     toId: r.to_id,
     requestedBy: r.requested_by,
     status: r.status,
+    expenseIds: r.expense_ids ?? [],
     createdAt: r.created_at,
     approvedAt: r.approved_at ?? undefined,
   }
@@ -211,31 +213,36 @@ export function useCloudData(user: User): CloudData {
     [sb, refetch],
   )
 
-  const settleUp = useCallback(async () => {
-    if (settlements.some((s) => s.status === 'pending')) return
-    const bal = computeBalance(expenses, settlements, userId)
-    if (Math.abs(bal) < 0.005) return
-    const other = profiles.find((p) => p.id !== userId)
-    if (!other) return
-    const fromId = bal > 0 ? other.id : userId
-    const toId = bal > 0 ? userId : other.id
-    const { error: err } = await sb.from('settlements').insert({
-      amount: Math.abs(bal),
-      from_id: fromId,
-      to_id: toId,
-      requested_by: userId,
-      status: 'pending',
-      created_by: userId,
-    })
-    if (err) throw err
-    await refetch()
-    const meName =
-      profiles.find((p) => p.id === userId)?.displayName ?? 'Your partner'
-    void notifyOther(
-      'SplitWise',
-      `${meName} asked to settle up · ${formatCurrency(Math.abs(bal))}`,
-    )
-  }, [sb, userId, expenses, settlements, profiles, refetch])
+  const settleUp = useCallback(
+    async (expenseIds: string[]) => {
+      if (settlements.some((s) => s.status === 'pending')) return
+      if (expenseIds.length === 0) return
+      const other = profiles.find((p) => p.id !== userId)
+      if (!other) return
+      const net = netOfExpenses(expenses, new Set(expenseIds), userId)
+      const fromId = net >= 0 ? other.id : userId
+      const toId = net >= 0 ? userId : other.id
+      const { error: err } = await sb.from('settlements').insert({
+        amount: Math.abs(net),
+        from_id: fromId,
+        to_id: toId,
+        requested_by: userId,
+        status: 'pending',
+        expense_ids: expenseIds,
+        created_by: userId,
+      })
+      if (err) throw err
+      await refetch()
+      const meName =
+        profiles.find((p) => p.id === userId)?.displayName ?? 'Your partner'
+      const n = expenseIds.length
+      void notifyOther(
+        'SplitWise',
+        `${meName} wants to settle up ${n} item${n === 1 ? '' : 's'} · ${formatCurrency(Math.abs(net))}`,
+      )
+    },
+    [sb, userId, expenses, settlements, profiles, refetch],
+  )
 
   const approveSettlement = useCallback(
     async (id: string) => {

@@ -25,11 +25,12 @@ create table if not exists public.expenses (
 
 create table if not exists public.settlements (
   id           uuid primary key default gen_random_uuid(),
-  amount       numeric(12, 2) not null check (amount > 0),
+  amount       numeric(12, 2) not null check (amount >= 0),
   from_id      uuid not null references public.profiles (id),
   to_id        uuid not null references public.profiles (id),
   requested_by uuid references public.profiles (id),
   status       text not null default 'approved' check (status in ('pending', 'approved')),
+  expense_ids  uuid[] not null default '{}',
   approved_at  timestamptz,
   created_by   uuid not null default auth.uid() references public.profiles (id),
   created_at   timestamptz not null default now()

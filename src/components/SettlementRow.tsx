@@ -13,7 +13,10 @@ interface Props {
 export default function SettlementRow({ settlement, session, onUndo }: Props) {
   const fromMe = settlement.fromId === session.viewerId
   const them = otherName(session)
-  const subtitle = fromMe ? `You paid ${them}` : `${them} paid you`
+  const direction = fromMe ? `You paid ${them}` : `${them} paid you`
+  const count = settlement.expenseIds.length
+  const subtitle =
+    count > 0 ? `${count} item${count === 1 ? '' : 's'} · ${direction}` : direction
   const when = settlement.approvedAt ?? settlement.createdAt
 
   return (

@@ -40,14 +40,17 @@ export interface Expense {
 //   approved -> both agreed; it now zeroes out what was owed
 export type SettlementStatus = 'pending' | 'approved'
 
-// A payback (e.g. "Dani paid you $42.50").
+// A payback that clears a chosen SET of transactions (e.g. "Dani paid you
+// $42.50 for these 3 items"). expenseIds lists exactly which expenses it
+// settles; once approved, those expenses drop off the balance.
 export interface Settlement {
   id: string
-  amount: number
-  fromId: PersonId // who handed over the money
-  toId: PersonId // who received it
+  amount: number // net that changes hands for the selected items
+  fromId: PersonId // who hands over the money
+  toId: PersonId // who receives it
   requestedBy: PersonId // who tapped "Settle up"
   status: SettlementStatus
+  expenseIds: string[] // the transactions being settled
   createdAt: string
   approvedAt?: string
 }

@@ -36,7 +36,7 @@ export interface ExpenseStore {
   error: string | null
   addExpense: (input: NewExpenseInput) => Promise<void>
   deleteExpense: (id: string) => Promise<void>
-  settleUp: () => Promise<void> // creates a pending request
+  settleUp: (expenseIds: string[]) => Promise<void> // pending request for those items
   approveSettlement: (id: string) => Promise<void>
   cancelSettlement: (id: string) => Promise<void> // undo / decline
   resetDemo?: () => void // local mode only

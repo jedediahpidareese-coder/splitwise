@@ -3,6 +3,7 @@ import type { Expense, Settlement } from '../types'
 import type { ExpenseStore, Session } from '../data/storeTypes'
 import { nameFor, otherName } from '../lib/identity'
 import { formatCurrency } from '../lib/format'
+import { settledExpenseIds } from '../lib/balance'
 import BalanceCard from '../components/BalanceCard'
 import ExpenseRow from '../components/ExpenseRow'
 import SettlementRow from '../components/SettlementRow'
@@ -12,6 +13,7 @@ interface Props {
   store: ExpenseStore
   session: Session
   onAdd: () => void
+  onSettleUp: () => void
   onSignOut?: () => void
 }
 
@@ -19,23 +21,32 @@ type Item =
   | { kind: 'expense'; date: string; expense: Expense }
   | { kind: 'settlement'; date: string; settlement: Settlement }
 
-export default function HomeScreen({ store, session, onAdd, onSignOut }: Props) {
+export default function HomeScreen({
+  store,
+  session,
+  onAdd,
+  onSettleUp,
+  onSignOut,
+}: Props) {
   const {
     expenses,
     settlements,
     balance,
     pendingSettlement,
-    settleUp,
     approveSettlement,
     cancelSettlement,
     deleteExpense,
     resetDemo,
   } = store
 
+  // Settled transactions drop off the active list; the settle-up entry stands
+  // in for them (and can be undone).
+  const settledIds = settledExpenseIds(settlements)
+  const outstanding = expenses.filter((e) => !settledIds.has(e.id))
   const approved = settlements.filter((s) => s.status === 'approved')
 
   const items: Item[] = [
-    ...expenses.map((e): Item => ({ kind: 'expense', date: e.createdAt, expense: e })),
+    ...outstanding.map((e): Item => ({ kind: 'expense', date: e.createdAt, expense: e })),
     ...approved.map((s): Item => ({
       kind: 'settlement',
       date: s.approvedAt ?? s.createdAt,
@@ -82,7 +93,7 @@ export default function HomeScreen({ store, session, onAdd, onSignOut }: Props) 
         <BalanceCard
           balance={balance}
           otherName={otherName(session)}
-          onSettle={settleUp}
+          onSettle={onSettleUp}
           canSettle={!pendingSettlement}
         />
 
@@ -154,6 +165,7 @@ function PendingSettleBanner({
 }) {
   const isRequester = settlement.requestedBy === session.viewerId
   const canApprove = !isRequester || session.soloDemo
+  const count = settlement.expenseIds.length
 
   return (
     <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
@@ -164,6 +176,7 @@ function PendingSettleBanner({
             {isRequester
               ? 'You asked to settle up'
               : `${nameFor(session, settlement.requestedBy)} wants to settle up`}{' '}
+            {count > 0 ? `${count} item${count === 1 ? '' : 's'} · ` : ''}
             {formatCurrency(settlement.amount)}
           </div>
           <div className="text-xs text-amber-700">

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { Expense, Settlement } from '../types'
 import type { ExpenseStore, NewExpenseInput, Session } from './storeTypes'
-import { computeBalance } from '../lib/balance'
+import { computeBalance, netOfExpenses } from '../lib/balance'
 import {
   LOCAL_ME,
   LOCAL_OTHER,
@@ -81,19 +81,20 @@ export function useLocalStore(): { store: ExpenseStore; session: Session } {
     }))
   }, [])
 
-  const settleUp = useCallback(async () => {
+  const settleUp = useCallback(async (expenseIds: string[]) => {
     setState((s) => {
       // Don't allow a second request while one is already pending.
       if (s.settlements.some((x) => x.status === 'pending')) return s
-      const bal = computeBalance(s.expenses, s.settlements, LOCAL_ME.id)
-      if (Math.abs(bal) < 0.005) return s
+      if (expenseIds.length === 0) return s
+      const net = netOfExpenses(s.expenses, new Set(expenseIds), LOCAL_ME.id)
       const settlement: Settlement = {
         id: newId(),
-        amount: Math.abs(bal),
-        fromId: bal > 0 ? LOCAL_OTHER.id : LOCAL_ME.id,
-        toId: bal > 0 ? LOCAL_ME.id : LOCAL_OTHER.id,
+        amount: Math.abs(net),
+        fromId: net >= 0 ? LOCAL_OTHER.id : LOCAL_ME.id,
+        toId: net >= 0 ? LOCAL_ME.id : LOCAL_OTHER.id,
         requestedBy: LOCAL_ME.id,
         status: 'pending',
+        expenseIds,
         createdAt: new Date().toISOString(),
       }
       return { ...s, settlements: [settlement, ...s.settlements] }

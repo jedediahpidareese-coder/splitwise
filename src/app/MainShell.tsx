@@ -3,10 +3,11 @@ import type { ExpenseStore, Session } from '../data/storeTypes'
 import Frame from './Frame'
 import HomeScreen from '../screens/HomeScreen'
 import AddPurchaseScreen from '../screens/AddPurchaseScreen'
+import SettleUpScreen from '../screens/SettleUpScreen'
 
-type View = 'home' | 'add'
+type View = 'home' | 'add' | 'settle'
 
-// The signed-in (or local) experience: switches between Home and Add.
+// The signed-in (or local) experience: switches between Home, Add, and Settle.
 export default function MainShell({
   store,
   session,
@@ -17,21 +18,21 @@ export default function MainShell({
   onSignOut?: () => void
 }) {
   const [view, setView] = useState<View>('home')
+  const home = () => setView('home')
 
   return (
     <Frame>
-      {view === 'home' ? (
+      {view === 'add' ? (
+        <AddPurchaseScreen store={store} session={session} onClose={home} />
+      ) : view === 'settle' ? (
+        <SettleUpScreen store={store} session={session} onClose={home} />
+      ) : (
         <HomeScreen
           store={store}
           session={session}
           onAdd={() => setView('add')}
+          onSettleUp={() => setView('settle')}
           onSignOut={onSignOut}
-        />
-      ) : (
-        <AddPurchaseScreen
-          store={store}
-          session={session}
-          onClose={() => setView('home')}
         />
       )}
     </Frame>
