@@ -8,10 +8,12 @@ import {
   notificationPermission,
   pushSupported,
 } from '../lib/push'
+import { useDialog } from './dialog'
 
 export default function NotificationsBell({ userId }: { userId: string }) {
   const [on, setOn] = useState(false)
   const [busy, setBusy] = useState(false)
+  const { alert } = useDialog()
 
   useEffect(() => {
     let active = true
@@ -37,23 +39,26 @@ export default function NotificationsBell({ userId }: { userId: string }) {
       return
     }
 
-    // Turning on. Handle the cases that need the user to act first.
     if (notificationPermission() === 'denied') {
-      alert(
-        "Notifications are turned off for SplitWise in your phone's settings — " +
-          'for security, only you can turn them back on there:\n\n' +
-          'Android: Settings → Apps → SplitWise → Notifications → turn on.\n' +
-          'iPhone: Settings → Notifications → SplitWise → Allow Notifications.\n\n' +
-          'Then come back and tap the bell again.',
-      )
+      await alert({
+        title: 'Notifications are blocked',
+        message:
+          "Your phone has notifications blocked for this site, and turning the app's " +
+          "notification toggle on isn't enough to undo it.\n\n" +
+          'In Chrome: tap the icon just left of the web address → Permissions → ' +
+          'Notifications → Allow (or “Reset permissions”). Then reopen SplitWise and ' +
+          'tap the bell again.',
+      })
       return
     }
     if (!isStandalone()) {
-      alert(
-        'Open SplitWise from its home-screen icon (the installed app) to turn on ' +
-          "notifications — not a browser tab. This avoids duplicate browser alerts.\n\n" +
-          'If it isn’t installed yet: browser menu → Add to Home screen.',
-      )
+      await alert({
+        title: 'Open the installed app',
+        message:
+          'Turn notifications on from the SplitWise app on your home screen, not a ' +
+          'browser tab — this avoids duplicate alerts.\n\nNot installed yet? Use your ' +
+          'browser menu → Add to Home screen.',
+      })
       return
     }
 
@@ -65,11 +70,18 @@ export default function NotificationsBell({ userId }: { userId: string }) {
       return
     }
     if (res.reason === 'needs-app') {
-      alert('Open the installed SplitWise app (from your home screen) to turn on notifications.')
+      await alert({
+        title: 'Open the installed app',
+        message: 'Turn on notifications from the SplitWise home-screen app.',
+      })
     } else if (res.reason === 'denied') {
-      alert('Notifications are blocked in settings. Turn them on for SplitWise, then tap the bell again.')
+      await alert({
+        title: 'Notifications are blocked',
+        message:
+          'Allow notifications for SplitWise in your phone/browser settings, then tap the bell again.',
+      })
     } else if (res.reason && res.reason !== 'default') {
-      alert(`Could not enable notifications: ${res.reason}`)
+      await alert({ title: 'Couldn’t turn on notifications', message: res.reason })
     }
   }
 

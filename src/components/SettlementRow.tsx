@@ -3,6 +3,7 @@ import type { Settlement } from '../types'
 import type { Session } from '../data/storeTypes'
 import { otherName } from '../lib/identity'
 import { formatCurrency, formatDate } from '../lib/format'
+import { useDialog } from './dialog'
 
 interface Props {
   settlement: Settlement
@@ -11,6 +12,7 @@ interface Props {
 }
 
 export default function SettlementRow({ settlement, session, onUndo }: Props) {
+  const { confirm } = useDialog()
   const fromMe = settlement.fromId === session.viewerId
   const them = otherName(session)
   const direction = fromMe ? `You paid ${them}` : `${them} paid you`
@@ -40,10 +42,14 @@ export default function SettlementRow({ settlement, session, onUndo }: Props) {
       <button
         type="button"
         aria-label="Undo this settle-up"
-        onClick={() => {
-          if (confirm('Undo this settle-up? The balance will come back.')) {
-            onUndo(settlement.id)
-          }
+        onClick={async () => {
+          const ok = await confirm({
+            title: 'Undo this settle-up?',
+            message: 'The transactions it cleared will come back to the balance.',
+            confirmLabel: 'Undo',
+            destructive: true,
+          })
+          if (ok) onUndo(settlement.id)
         }}
         className="ml-1 rounded-md p-1 text-slate-300 hover:text-rose-500 active:scale-90"
       >

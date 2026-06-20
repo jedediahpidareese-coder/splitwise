@@ -8,6 +8,7 @@ import BalanceCard from '../components/BalanceCard'
 import ExpenseRow from '../components/ExpenseRow'
 import SettlementRow from '../components/SettlementRow'
 import NotificationsBell from '../components/NotificationsBell'
+import { useDialog } from '../components/dialog'
 
 interface Props {
   store: ExpenseStore
@@ -44,6 +45,7 @@ export default function HomeScreen({
   const settledIds = settledExpenseIds(settlements)
   const outstanding = expenses.filter((e) => !settledIds.has(e.id))
   const approved = settlements.filter((s) => s.status === 'approved')
+  const { confirm } = useDialog()
 
   const items: Item[] = [
     ...outstanding.map((e): Item => ({ kind: 'expense', date: e.createdAt, expense: e })),
@@ -66,8 +68,13 @@ export default function HomeScreen({
                 type="button"
                 aria-label="Reset demo data"
                 title="Reset demo data"
-                onClick={() => {
-                  if (confirm('Reset to the original example purchases?')) resetDemo()
+                onClick={async () => {
+                  const ok = await confirm({
+                    title: 'Reset demo data?',
+                    message: 'Restores the original example purchases.',
+                    confirmLabel: 'Reset',
+                  })
+                  if (ok) resetDemo()
                 }}
                 className="rounded-md p-1.5 text-slate-400 hover:text-slate-600 active:scale-90"
               >

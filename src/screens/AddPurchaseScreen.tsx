@@ -6,6 +6,7 @@ import { CATEGORIES } from '../lib/categories'
 import { formatCurrency } from '../lib/format'
 import { otherName } from '../lib/identity'
 import { processReceipt } from '../lib/image'
+import { useDialog } from '../components/dialog'
 
 interface Props {
   store: ExpenseStore
@@ -23,6 +24,7 @@ export default function AddPurchaseScreen({ store, session, onClose }: Props) {
   const [receipt, setReceipt] = useState<ReceiptInput | undefined>()
   const [busy, setBusy] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
+  const { alert } = useDialog()
 
   const them = otherName(session)
   const otherId = session.other?.id ?? ''
@@ -45,7 +47,10 @@ export default function AddPurchaseScreen({ store, session, onClose }: Props) {
     try {
       setReceipt(await processReceipt(file))
     } catch {
-      alert('Sorry, that image could not be read.')
+      await alert({
+        title: 'Couldn’t read that image',
+        message: 'Please try a different photo.',
+      })
     } finally {
       e.target.value = ''
     }
@@ -67,9 +72,10 @@ export default function AddPurchaseScreen({ store, session, onClose }: Props) {
       onClose()
     } catch (err) {
       setBusy(false)
-      alert(
-        `Could not save: ${err instanceof Error ? err.message : String(err)}`,
-      )
+      await alert({
+        title: 'Could not save',
+        message: err instanceof Error ? err.message : String(err),
+      })
     }
   }
 

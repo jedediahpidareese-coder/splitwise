@@ -4,6 +4,7 @@ import type { Session } from '../data/storeTypes'
 import { categoryMeta } from '../lib/categories'
 import { formatCurrency, formatDate } from '../lib/format'
 import { describeSplit } from '../lib/identity'
+import { useDialog } from './dialog'
 
 interface Props {
   expense: Expense
@@ -13,6 +14,7 @@ interface Props {
 
 export default function ExpenseRow({ expense, session, onDelete }: Props) {
   const { Icon } = categoryMeta(expense.category)
+  const { confirm } = useDialog()
 
   return (
     <div className="group flex items-center gap-3 border-t border-slate-100 py-2.5">
@@ -41,8 +43,14 @@ export default function ExpenseRow({ expense, session, onDelete }: Props) {
       <button
         type="button"
         aria-label={`Delete ${expense.description}`}
-        onClick={() => {
-          if (confirm(`Delete "${expense.description}"?`)) onDelete(expense.id)
+        onClick={async () => {
+          const ok = await confirm({
+            title: 'Delete this purchase?',
+            message: `“${expense.description}” will be removed for both of you.`,
+            confirmLabel: 'Delete',
+            destructive: true,
+          })
+          if (ok) onDelete(expense.id)
         }}
         className="ml-1 rounded-md p-1 text-slate-300 hover:text-rose-500 active:scale-90"
       >
