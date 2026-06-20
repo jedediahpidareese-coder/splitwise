@@ -136,3 +136,23 @@ grant select, insert, update, delete on public.profiles    to authenticated;
 grant select, insert, update, delete on public.expenses    to authenticated;
 grant select, insert, update, delete on public.settlements to authenticated;
 grant execute on function public.is_member() to authenticated;
+
+-- ── Push notifications ───────────────────────────────────────────────────────
+-- One row per device subscription. Each person manages only their own; the
+-- Edge Function reads the other person's rows via the service role to send.
+
+create table if not exists public.push_subscriptions (
+  endpoint   text primary key,
+  user_id    uuid not null references public.profiles (id) on delete cascade,
+  p256dh     text not null,
+  auth       text not null,
+  created_at timestamptz not null default now()
+);
+
+alter table public.push_subscriptions enable row level security;
+
+drop policy if exists "push_own" on public.push_subscriptions;
+create policy "push_own" on public.push_subscriptions for all to authenticated
+  using (user_id = auth.uid()) with check (user_id = auth.uid());
+
+grant select, insert, update, delete on public.push_subscriptions to authenticated;

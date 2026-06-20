@@ -4,6 +4,8 @@ import { supabase } from '../lib/supabase'
 import type { Expense, Profile, Settlement } from '../types'
 import type { ExpenseStore, NewExpenseInput, Session } from './storeTypes'
 import { computeBalance } from '../lib/balance'
+import { formatCurrency } from '../lib/format'
+import { notifyOther } from '../lib/push'
 
 type Status = 'loading' | 'needs-profile' | 'ready' | 'error'
 
@@ -190,8 +192,14 @@ export function useCloudData(user: User): CloudData {
       })
       if (err) throw err
       await refetch()
+      const meName =
+        profiles.find((p) => p.id === userId)?.displayName ?? 'Your partner'
+      void notifyOther(
+        'SplitWise',
+        `${meName} added ${input.description} · ${formatCurrency(input.amount)}`,
+      )
     },
-    [sb, userId, uploadReceipt, refetch],
+    [sb, userId, uploadReceipt, refetch, profiles],
   )
 
   const deleteExpense = useCallback(
@@ -221,6 +229,12 @@ export function useCloudData(user: User): CloudData {
     })
     if (err) throw err
     await refetch()
+    const meName =
+      profiles.find((p) => p.id === userId)?.displayName ?? 'Your partner'
+    void notifyOther(
+      'SplitWise',
+      `${meName} asked to settle up · ${formatCurrency(Math.abs(bal))}`,
+    )
   }, [sb, userId, expenses, settlements, profiles, refetch])
 
   const approveSettlement = useCallback(
@@ -231,8 +245,11 @@ export function useCloudData(user: User): CloudData {
         .eq('id', id)
       if (err) throw err
       await refetch()
+      const meName =
+        profiles.find((p) => p.id === userId)?.displayName ?? 'Your partner'
+      void notifyOther('SplitWise', `${meName} approved the settle-up`)
     },
-    [sb, refetch],
+    [sb, userId, profiles, refetch],
   )
 
   const cancelSettlement = useCallback(

@@ -6,6 +6,7 @@ import { formatCurrency } from '../lib/format'
 import BalanceCard from '../components/BalanceCard'
 import ExpenseRow from '../components/ExpenseRow'
 import SettlementRow from '../components/SettlementRow'
+import NotificationsBell from '../components/NotificationsBell'
 
 interface Props {
   store: ExpenseStore
@@ -48,6 +49,7 @@ export default function HomeScreen({ store, session, onAdd, onSignOut }: Props) 
         <div className="flex items-center justify-between">
           <h1 className="text-lg font-semibold text-slate-900">SplitWise</h1>
           <div className="flex items-center gap-1">
+            {!session.soloDemo && <NotificationsBell userId={session.viewerId} />}
             {resetDemo && (
               <button
                 type="button"
