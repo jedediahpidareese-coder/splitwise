@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="SplitWise icon">
+  <rect width="512" height="512" rx="112" fill="#0f766e"/>
+  <circle cx="204" cy="256" r="118" fill="#ffffff" fill-opacity="0.95"/>
+  <circle cx="308" cy="256" r="118" fill="#5eead4" fill-opacity="0.85"/>
+</svg>

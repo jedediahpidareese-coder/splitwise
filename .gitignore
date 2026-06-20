@@ -1,0 +1,19 @@
+node_modules
+dist
+dist-ssr
+*.local
+.env
+.env.*
+!.env.example
+
+# Local secret notes — never publish (this repo is public)
+*pass*.txt
+*password*.txt
+*secret*.txt
+*.secrets
+
+# Editor / OS
+.DS_Store
+.vscode/*
+!.vscode/extensions.json
+Thumbs.db
