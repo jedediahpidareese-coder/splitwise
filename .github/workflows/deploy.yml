@@ -34,6 +34,8 @@ jobs:
           # Optional: set these as repository secrets to enable cloud sync.
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          # Public VAPID key for push notifications (enables the bell).
+          VITE_VAPID_PUBLIC_KEY: ${{ secrets.VITE_VAPID_PUBLIC_KEY }}
         run: npm run build
 
       - uses: actions/upload-pages-artifact@v3
