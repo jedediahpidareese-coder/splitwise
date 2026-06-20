@@ -20,12 +20,11 @@ self.addEventListener('push', (event) => {
   } catch {
     data = { body: event.data?.text() }
   }
-  const icon = self.registration.scope + 'pwa-192.png'
   event.waitUntil(
     self.registration.showNotification(data.title || 'SplitWise', {
       body: data.body || 'New activity',
-      icon,
-      badge: icon,
+      icon: self.registration.scope + 'pwa-192.png', // full-color, shown in the notification
+      badge: self.registration.scope + 'badge-72.png', // monochrome, shown in the status bar
       data: { url: data.url || self.registration.scope },
     }),
   )

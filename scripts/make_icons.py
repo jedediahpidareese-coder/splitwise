@@ -51,8 +51,24 @@ def draw_icon(size: int, *, maskable: bool = False) -> Image.Image:
     return img.resize((size, size), Image.LANCZOS)
 
 
+def draw_badge(size: int = 72) -> Image.Image:
+    # Android status-bar icon must be a transparent silhouette (it gets tinted),
+    # otherwise a full-color image renders as a white square. White glyph here.
+    scale = 4
+    s = size * scale
+    img = Image.new("RGBA", (s, s), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    r = int(s * 0.27)
+    cy = s // 2
+    gap = int(r * 0.45)
+    for cx in (s // 2 - gap, s // 2 + gap):
+        d.ellipse([cx - r, cy - r, cx + r, cy + r], fill=(255, 255, 255, 255))
+    return img.resize((size, size), Image.LANCZOS)
+
+
 def main() -> None:
     PUBLIC.mkdir(parents=True, exist_ok=True)
+    draw_badge(72).save(PUBLIC / "badge-72.png")
     draw_icon(192).save(PUBLIC / "pwa-192.png")
     draw_icon(512).save(PUBLIC / "pwa-512.png")
     draw_icon(512, maskable=True).save(PUBLIC / "maskable-512.png")

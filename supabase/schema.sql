@@ -157,3 +157,8 @@ create policy "push_own" on public.push_subscriptions for all to authenticated
   using (user_id = auth.uid()) with check (user_id = auth.uid());
 
 grant select, insert, update, delete on public.push_subscriptions to authenticated;
+
+-- The notify Edge Function uses the service role to read BOTH people's
+-- subscriptions (bypassing RLS). Newer projects don't auto-grant table
+-- access to service_role, so grant it explicitly across the schema.
+grant select, insert, update, delete on all tables in schema public to service_role;

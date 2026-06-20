@@ -1,28 +1,75 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Bell, BellRing } from 'lucide-react'
-import { enablePush, notificationPermission, pushSupported } from '../lib/push'
+import {
+  disablePush,
+  enablePush,
+  isStandalone,
+  isSubscribed,
+  notificationPermission,
+  pushSupported,
+} from '../lib/push'
 
 export default function NotificationsBell({ userId }: { userId: string }) {
-  const [perm, setPerm] = useState(() => notificationPermission())
+  const [on, setOn] = useState(false)
   const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    let active = true
+    isSubscribed().then((v) => {
+      if (active) setOn(v)
+    })
+    return () => {
+      active = false
+    }
+  }, [])
 
   if (!pushSupported()) return null
 
-  const granted = perm === 'granted'
-
   async function toggle() {
+    if (busy) return
+
+    // Already on -> turn this device off (also clears a stray browser sub).
+    if (on) {
+      setBusy(true)
+      await disablePush()
+      setBusy(false)
+      setOn(false)
+      return
+    }
+
+    // Turning on. Handle the cases that need the user to act first.
+    if (notificationPermission() === 'denied') {
+      alert(
+        "Notifications are turned off for SplitWise in your phone's settings — " +
+          'for security, only you can turn them back on there:\n\n' +
+          'Android: Settings → Apps → SplitWise → Notifications → turn on.\n' +
+          'iPhone: Settings → Notifications → SplitWise → Allow Notifications.\n\n' +
+          'Then come back and tap the bell again.',
+      )
+      return
+    }
+    if (!isStandalone()) {
+      alert(
+        'Open SplitWise from its home-screen icon (the installed app) to turn on ' +
+          "notifications — not a browser tab. This avoids duplicate browser alerts.\n\n" +
+          'If it isn’t installed yet: browser menu → Add to Home screen.',
+      )
+      return
+    }
+
     setBusy(true)
     const res = await enablePush(userId)
     setBusy(false)
-    setPerm(notificationPermission())
     if (res.ok) {
-      // no-op; icon flips to "on"
+      setOn(true)
+      return
+    }
+    if (res.reason === 'needs-app') {
+      alert('Open the installed SplitWise app (from your home screen) to turn on notifications.')
     } else if (res.reason === 'denied') {
-      alert(
-        'Notifications are blocked. Turn them on for this site in your browser or phone settings, then tap the bell again.',
-      )
-    } else if (res.reason !== 'default') {
-      alert(`Could not enable notifications: ${res.reason ?? 'unknown error'}`)
+      alert('Notifications are blocked in settings. Turn them on for SplitWise, then tap the bell again.')
+    } else if (res.reason && res.reason !== 'default') {
+      alert(`Could not enable notifications: ${res.reason}`)
     }
   }
 
@@ -31,17 +78,13 @@ export default function NotificationsBell({ userId }: { userId: string }) {
       type="button"
       onClick={toggle}
       disabled={busy}
-      aria-label={granted ? 'Notifications on' : 'Enable notifications'}
-      title={granted ? 'Notifications on' : 'Enable notifications'}
+      aria-label={on ? 'Notifications on' : 'Enable notifications'}
+      title={on ? 'Notifications on — tap to turn off' : 'Enable notifications'}
       className={`rounded-md p-1.5 active:scale-90 ${
-        granted ? 'text-teal-600' : 'text-slate-400 hover:text-slate-600'
+        on ? 'text-teal-600' : 'text-slate-400 hover:text-slate-600'
       }`}
     >
-      {granted ? (
-        <BellRing size={20} aria-hidden="true" />
-      ) : (
-        <Bell size={20} aria-hidden="true" />
-      )}
+      {on ? <BellRing size={20} aria-hidden="true" /> : <Bell size={20} aria-hidden="true" />}
     </button>
   )
 }

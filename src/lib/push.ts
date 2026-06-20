@@ -14,9 +14,29 @@ export function pushSupported(): boolean {
   )
 }
 
+// True when running as the installed app (home-screen icon), false in a browser
+// tab. We only subscribe from the installed app so you don't also get separate
+// browser-tab notifications.
+export function isStandalone(): boolean {
+  if (typeof window === 'undefined') return false
+  const mm = window.matchMedia?.('(display-mode: standalone)').matches === true
+  const ios = (window.navigator as unknown as { standalone?: boolean }).standalone === true
+  return mm || ios
+}
+
 export function notificationPermission(): NotificationPermission | 'unsupported' {
   if (!pushSupported()) return 'unsupported'
   return Notification.permission
+}
+
+export async function isSubscribed(): Promise<boolean> {
+  if (!pushSupported()) return false
+  try {
+    const reg = await navigator.serviceWorker.ready
+    return (await reg.pushManager.getSubscription()) != null
+  } catch {
+    return false
+  }
 }
 
 function urlBase64ToUint8Array(base64: string): Uint8Array<ArrayBuffer> {
@@ -31,13 +51,13 @@ function urlBase64ToUint8Array(base64: string): Uint8Array<ArrayBuffer> {
 
 export interface EnableResult {
   ok: boolean
-  reason?: string
+  reason?: string // 'needs-app' | 'denied' | 'default' | 'unsupported' | error text
 }
 
-// Asks permission, subscribes via the service worker, and saves the
-// subscription so the server can push to this device.
+// Subscribe this device and save it so the server can push here.
 export async function enablePush(userId: string): Promise<EnableResult> {
   if (!pushSupported() || !supabase) return { ok: false, reason: 'unsupported' }
+  if (!isStandalone()) return { ok: false, reason: 'needs-app' }
 
   const permission = await Notification.requestPermission()
   if (permission !== 'granted') return { ok: false, reason: permission }
@@ -69,8 +89,23 @@ export async function enablePush(userId: string): Promise<EnableResult> {
   return { ok: true }
 }
 
+// Unsubscribe this device and remove it from the server (turns notifications
+// off for this device only — used to clear a duplicate browser subscription).
+export async function disablePush(): Promise<void> {
+  if (!pushSupported()) return
+  try {
+    const reg = await navigator.serviceWorker.ready
+    const sub = await reg.pushManager.getSubscription()
+    if (!sub) return
+    const endpoint = sub.endpoint
+    await sub.unsubscribe()
+    if (supabase) await supabase.from('push_subscriptions').delete().eq('endpoint', endpoint)
+  } catch {
+    // best effort
+  }
+}
+
 // Best-effort: ask the server to push a notification to the OTHER person.
-// The Edge Function figures out the recipient from the caller's auth token.
 export async function notifyOther(title: string, body: string): Promise<void> {
   if (!supabase) return
   try {
