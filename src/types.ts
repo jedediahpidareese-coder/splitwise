@@ -35,11 +35,19 @@ export interface Expense {
   createdAt: string // ISO timestamp
 }
 
-// A payback that resets the balance (e.g. "Dani paid you $42.50").
+// A settle-up must be approved by BOTH people before it clears the balance:
+//   pending  -> requested by one person, waiting on the other (balance unchanged)
+//   approved -> both agreed; it now zeroes out what was owed
+export type SettlementStatus = 'pending' | 'approved'
+
+// A payback (e.g. "Dani paid you $42.50").
 export interface Settlement {
   id: string
   amount: number
   fromId: PersonId // who handed over the money
   toId: PersonId // who received it
+  requestedBy: PersonId // who tapped "Settle up"
+  status: SettlementStatus
   createdAt: string
+  approvedAt?: string
 }

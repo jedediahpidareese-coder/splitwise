@@ -25,6 +25,9 @@ export function computeBalance(
   }
 
   for (const s of settlements) {
+    // Only an APPROVED settle-up changes the balance; a pending request does
+    // not move anything until both people have agreed.
+    if (s.status !== 'approved') continue
     // You pay them -> reduces what you owe (toward +).
     // They pay you -> reduces what they owe (toward -).
     bal += s.fromId === viewerId ? s.amount : -s.amount

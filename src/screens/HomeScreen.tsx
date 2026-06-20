@@ -1,8 +1,11 @@
-import { LogOut, Plus, RefreshCw } from 'lucide-react'
+import { Clock, LogOut, Plus, RefreshCw } from 'lucide-react'
+import type { Expense, Settlement } from '../types'
 import type { ExpenseStore, Session } from '../data/storeTypes'
-import { otherName } from '../lib/identity'
+import { nameFor, otherName } from '../lib/identity'
+import { formatCurrency } from '../lib/format'
 import BalanceCard from '../components/BalanceCard'
 import ExpenseRow from '../components/ExpenseRow'
+import SettlementRow from '../components/SettlementRow'
 
 interface Props {
   store: ExpenseStore
@@ -11,8 +14,33 @@ interface Props {
   onSignOut?: () => void
 }
 
+type Item =
+  | { kind: 'expense'; date: string; expense: Expense }
+  | { kind: 'settlement'; date: string; settlement: Settlement }
+
 export default function HomeScreen({ store, session, onAdd, onSignOut }: Props) {
-  const { expenses, balance, settleUp, deleteExpense, resetDemo } = store
+  const {
+    expenses,
+    settlements,
+    balance,
+    pendingSettlement,
+    settleUp,
+    approveSettlement,
+    cancelSettlement,
+    deleteExpense,
+    resetDemo,
+  } = store
+
+  const approved = settlements.filter((s) => s.status === 'approved')
+
+  const items: Item[] = [
+    ...expenses.map((e): Item => ({ kind: 'expense', date: e.createdAt, expense: e })),
+    ...approved.map((s): Item => ({
+      kind: 'settlement',
+      date: s.approvedAt ?? s.createdAt,
+      settlement: s,
+    })),
+  ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
   return (
     <div className="flex min-h-full flex-col">
@@ -53,29 +81,51 @@ export default function HomeScreen({ store, session, onAdd, onSignOut }: Props) 
           balance={balance}
           otherName={otherName(session)}
           onSettle={settleUp}
+          canSettle={!pendingSettlement}
         />
+
+        {pendingSettlement && (
+          <PendingSettleBanner
+            settlement={pendingSettlement}
+            session={session}
+            onApprove={() => approveSettlement(pendingSettlement.id)}
+            onCancel={() => cancelSettlement(pendingSettlement.id)}
+          />
+        )}
 
         <h2 className="mb-1 mt-6 px-1 text-sm text-slate-500">Recent</h2>
 
-        {expenses.length === 0 ? (
+        {items.length === 0 ? (
           <p className="px-1 py-8 text-center text-sm text-slate-400">
             No purchases yet. Tap “Add purchase” to start.
           </p>
         ) : (
           <div>
-            {expenses.map((e) => (
-              <ExpenseRow
-                key={e.id}
-                expense={e}
-                session={session}
-                onDelete={deleteExpense}
-              />
-            ))}
+            {items.map((it) =>
+              it.kind === 'expense' ? (
+                <ExpenseRow
+                  key={`e-${it.expense.id}`}
+                  expense={it.expense}
+                  session={session}
+                  onDelete={deleteExpense}
+                />
+              ) : (
+                <SettlementRow
+                  key={`s-${it.settlement.id}`}
+                  settlement={it.settlement}
+                  session={session}
+                  onUndo={cancelSettlement}
+                />
+              ),
+            )}
           </div>
         )}
       </main>
 
-      <div className="safe-bottom pointer-events-none fixed inset-x-0 bottom-0 z-20 flex justify-center pb-5">
+      <div
+        className="pointer-events-none fixed inset-x-0 bottom-0 z-20 flex justify-center"
+        style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 2rem)' }}
+      >
         <button
           type="button"
           onClick={onAdd}
@@ -84,6 +134,60 @@ export default function HomeScreen({ store, session, onAdd, onSignOut }: Props) 
           <Plus size={18} aria-hidden="true" />
           Add purchase
         </button>
+      </div>
+    </div>
+  )
+}
+
+function PendingSettleBanner({
+  settlement,
+  session,
+  onApprove,
+  onCancel,
+}: {
+  settlement: Settlement
+  session: Session
+  onApprove: () => void
+  onCancel: () => void
+}) {
+  const isRequester = settlement.requestedBy === session.viewerId
+  const canApprove = !isRequester || session.soloDemo
+
+  return (
+    <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+      <div className="flex items-start gap-2.5">
+        <Clock size={18} className="mt-0.5 flex-shrink-0 text-amber-600" aria-hidden="true" />
+        <div className="flex-1">
+          <div className="text-sm font-medium text-amber-900">
+            {isRequester
+              ? 'You asked to settle up'
+              : `${nameFor(session, settlement.requestedBy)} wants to settle up`}{' '}
+            {formatCurrency(settlement.amount)}
+          </div>
+          <div className="text-xs text-amber-700">
+            {isRequester
+              ? `Waiting for ${otherName(session)} to approve.`
+              : 'Approve to clear what’s owed.'}
+          </div>
+          <div className="mt-2.5 flex gap-2">
+            {canApprove && (
+              <button
+                type="button"
+                onClick={onApprove}
+                className="rounded-lg bg-teal-700 px-3 py-1.5 text-xs font-medium text-white active:scale-95"
+              >
+                Approve
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onCancel}
+              className="rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-xs font-medium text-amber-800 active:scale-95"
+            >
+              {isRequester ? 'Undo' : 'Decline'}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   )

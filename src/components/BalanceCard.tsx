@@ -4,9 +4,15 @@ interface Props {
   balance: number // >0 the other owes you, <0 you owe them
   otherName: string
   onSettle: () => void
+  canSettle?: boolean
 }
 
-export default function BalanceCard({ balance, otherName, onSettle }: Props) {
+export default function BalanceCard({
+  balance,
+  otherName,
+  onSettle,
+  canSettle = true,
+}: Props) {
   const settled = Math.abs(balance) < 0.005
   const theyOweYou = balance > 0
 
@@ -31,13 +37,15 @@ export default function BalanceCard({ balance, otherName, onSettle }: Props) {
           <div className="mt-1 text-3xl font-semibold tracking-tight">
             {formatCurrency(Math.abs(balance))}
           </div>
-          <button
-            type="button"
-            onClick={onSettle}
-            className="mt-3 rounded-lg bg-white/95 px-3.5 py-1.5 text-sm font-medium text-slate-800 active:scale-95"
-          >
-            Settle up
-          </button>
+          {canSettle && (
+            <button
+              type="button"
+              onClick={onSettle}
+              className="mt-3 rounded-lg bg-white/95 px-3.5 py-1.5 text-sm font-medium text-slate-800 active:scale-95"
+            >
+              Settle up
+            </button>
+          )}
         </>
       ) : (
         <div className="mt-1 text-sm opacity-90">Nothing owed either way.</div>

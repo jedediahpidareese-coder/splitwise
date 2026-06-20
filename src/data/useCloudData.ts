@@ -24,7 +24,10 @@ interface SettlementRow {
   amount: number | string
   from_id: string
   to_id: string
+  requested_by: string
+  status: Settlement['status']
   created_at: string
+  approved_at: string | null
 }
 
 interface ProfileRow {
@@ -52,7 +55,10 @@ function toSettlement(r: SettlementRow): Settlement {
     amount: Number(r.amount),
     fromId: r.from_id,
     toId: r.to_id,
+    requestedBy: r.requested_by,
+    status: r.status,
     createdAt: r.created_at,
+    approvedAt: r.approved_at ?? undefined,
   }
 }
 
@@ -198,6 +204,7 @@ export function useCloudData(user: User): CloudData {
   )
 
   const settleUp = useCallback(async () => {
+    if (settlements.some((s) => s.status === 'pending')) return
     const bal = computeBalance(expenses, settlements, userId)
     if (Math.abs(bal) < 0.005) return
     const other = profiles.find((p) => p.id !== userId)
@@ -208,11 +215,34 @@ export function useCloudData(user: User): CloudData {
       amount: Math.abs(bal),
       from_id: fromId,
       to_id: toId,
+      requested_by: userId,
+      status: 'pending',
       created_by: userId,
     })
     if (err) throw err
     await refetch()
   }, [sb, userId, expenses, settlements, profiles, refetch])
+
+  const approveSettlement = useCallback(
+    async (id: string) => {
+      const { error: err } = await sb
+        .from('settlements')
+        .update({ status: 'approved', approved_at: new Date().toISOString() })
+        .eq('id', id)
+      if (err) throw err
+      await refetch()
+    },
+    [sb, refetch],
+  )
+
+  const cancelSettlement = useCallback(
+    async (id: string) => {
+      const { error: err } = await sb.from('settlements').delete().eq('id', id)
+      if (err) throw err
+      await refetch()
+    },
+    [sb, refetch],
+  )
 
   const signOut = useCallback(async () => {
     await sb.auth.signOut()
@@ -253,19 +283,25 @@ export function useCloudData(user: User): CloudData {
         : 'ready'
 
   const session: Session | null = viewer
-    ? { viewerId: userId, viewer, other }
+    ? { viewerId: userId, viewer, other, soloDemo: false }
     : null
+
+  const pendingSettlement =
+    settlements.find((s) => s.status === 'pending') ?? null
 
   const store: ExpenseStore | null = viewer
     ? {
         expenses,
         settlements,
         balance,
+        pendingSettlement,
         ready: true,
         error,
         addExpense,
         deleteExpense,
         settleUp,
+        approveSettlement,
+        cancelSettlement,
       }
     : null
 

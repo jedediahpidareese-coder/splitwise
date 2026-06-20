@@ -7,6 +7,7 @@ export interface Session {
   viewerId: PersonId
   viewer: Profile
   other: Profile | null // null until the second person has joined (cloud only)
+  soloDemo: boolean // local mode: one device plays both people
 }
 
 export interface ReceiptInput {
@@ -30,10 +31,13 @@ export interface ExpenseStore {
   expenses: Expense[]
   settlements: Settlement[]
   balance: number // viewer-relative: >0 the other owes you, <0 you owe them
+  pendingSettlement: Settlement | null
   ready: boolean
   error: string | null
   addExpense: (input: NewExpenseInput) => Promise<void>
   deleteExpense: (id: string) => Promise<void>
-  settleUp: () => Promise<void>
+  settleUp: () => Promise<void> // creates a pending request
+  approveSettlement: (id: string) => Promise<void>
+  cancelSettlement: (id: string) => Promise<void> // undo / decline
   resetDemo?: () => void // local mode only
 }

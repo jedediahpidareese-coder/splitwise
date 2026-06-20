@@ -43,6 +43,7 @@ const SESSION: Session = {
   viewerId: LOCAL_ME.id,
   viewer: LOCAL_ME,
   other: LOCAL_OTHER,
+  soloDemo: true,
 }
 
 // LOCAL-mode store (no sign-in, data only on this device). Implements the same
@@ -82,6 +83,8 @@ export function useLocalStore(): { store: ExpenseStore; session: Session } {
 
   const settleUp = useCallback(async () => {
     setState((s) => {
+      // Don't allow a second request while one is already pending.
+      if (s.settlements.some((x) => x.status === 'pending')) return s
       const bal = computeBalance(s.expenses, s.settlements, LOCAL_ME.id)
       if (Math.abs(bal) < 0.005) return s
       const settlement: Settlement = {
@@ -89,10 +92,30 @@ export function useLocalStore(): { store: ExpenseStore; session: Session } {
         amount: Math.abs(bal),
         fromId: bal > 0 ? LOCAL_OTHER.id : LOCAL_ME.id,
         toId: bal > 0 ? LOCAL_ME.id : LOCAL_OTHER.id,
+        requestedBy: LOCAL_ME.id,
+        status: 'pending',
         createdAt: new Date().toISOString(),
       }
       return { ...s, settlements: [settlement, ...s.settlements] }
     })
+  }, [])
+
+  const approveSettlement = useCallback(async (id: string) => {
+    setState((s) => ({
+      ...s,
+      settlements: s.settlements.map((x) =>
+        x.id === id
+          ? { ...x, status: 'approved', approvedAt: new Date().toISOString() }
+          : x,
+      ),
+    }))
+  }, [])
+
+  const cancelSettlement = useCallback(async (id: string) => {
+    setState((s) => ({
+      ...s,
+      settlements: s.settlements.filter((x) => x.id !== id),
+    }))
   }, [])
 
   const resetDemo = useCallback(() => {
@@ -104,15 +127,21 @@ export function useLocalStore(): { store: ExpenseStore; session: Session } {
     [state],
   )
 
+  const pendingSettlement =
+    state.settlements.find((s) => s.status === 'pending') ?? null
+
   const store: ExpenseStore = {
     expenses: state.expenses,
     settlements: state.settlements,
     balance,
+    pendingSettlement,
     ready: true,
     error: null,
     addExpense,
     deleteExpense,
     settleUp,
+    approveSettlement,
+    cancelSettlement,
     resetDemo,
   }
 
