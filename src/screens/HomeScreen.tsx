@@ -57,7 +57,10 @@ export default function HomeScreen({
 
   return (
     <div className="flex min-h-full flex-col">
-      <header className="safe-top sticky top-0 z-10 bg-slate-50/90 px-4 pb-3 pt-7 backdrop-blur">
+      <header
+        className="sticky top-0 z-10 bg-slate-50/90 px-4 pb-3 backdrop-blur"
+        style={{ paddingTop: 'calc(env(safe-area-inset-top) + 1.75rem)' }}
+      >
         <div className="flex items-center justify-between">
           <h1 className="text-lg font-semibold text-slate-900">SplitWise</h1>
           <div className="flex items-center gap-1">
