@@ -105,7 +105,7 @@ export default function SettleUpScreen({
 
   return (
     <div className="flex min-h-full flex-col">
-      <header className="safe-top sticky top-0 z-10 flex items-center gap-2 bg-slate-50/90 px-3 pb-3 pt-4 backdrop-blur">
+      <header className="safe-top sticky top-0 z-10 flex items-center gap-2 bg-slate-50/90 px-3 pb-3 pt-7 backdrop-blur">
         <button
           type="button"
           aria-label="Cancel"
