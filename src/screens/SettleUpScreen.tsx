@@ -195,6 +195,10 @@ export default function SettleUpScreen({
                             onChange={(ev) =>
                               setAmounts((p) => ({ ...p, [e.id]: ev.target.value }))
                             }
+                            onFocus={(ev) => {
+                              const el = ev.currentTarget
+                              setTimeout(() => el.select(), 0)
+                            }}
                             inputMode="decimal"
                             className="w-20 bg-transparent py-1.5 pl-1 text-sm outline-none"
                           />
@@ -236,6 +240,10 @@ export default function SettleUpScreen({
               <input
                 value={general}
                 onChange={(e) => setGeneral(e.target.value)}
+                onFocus={(e) => {
+                  const el = e.currentTarget
+                  setTimeout(() => el.select(), 0)
+                }}
                 inputMode="decimal"
                 className="w-full bg-transparent py-2.5 pl-1 text-xl font-semibold outline-none"
               />

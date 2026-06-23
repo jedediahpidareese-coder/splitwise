@@ -24,6 +24,8 @@ export default function AddPurchaseScreen({ store, session, onClose }: Props) {
   const [receipt, setReceipt] = useState<ReceiptInput | undefined>()
   const [busy, setBusy] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
+  const descRef = useRef<HTMLInputElement>(null)
+  const noteRef = useRef<HTMLInputElement>(null)
   const { alert } = useDialog()
 
   const them = otherName(session)
@@ -85,7 +87,13 @@ export default function AddPurchaseScreen({ store, session, onClose }: Props) {
   ]
 
   return (
-    <div className="flex min-h-full flex-col">
+    <form
+      className="flex min-h-full flex-col"
+      onSubmit={(e) => {
+        e.preventDefault()
+        void save()
+      }}
+    >
       <header
         className="sticky top-0 z-10 flex items-center gap-2 bg-slate-50/90 px-3 pb-3 backdrop-blur"
         style={{ paddingTop: 'calc(env(safe-area-inset-top) + 1.75rem)' }}
@@ -108,7 +116,14 @@ export default function AddPurchaseScreen({ store, session, onClose }: Props) {
             <input
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  descRef.current?.focus()
+                }
+              }}
               inputMode="decimal"
+              enterKeyHint="next"
               placeholder="0.00"
               className="w-full bg-transparent py-2.5 pl-1 text-2xl font-semibold outline-none placeholder:text-slate-300"
             />
@@ -117,8 +132,16 @@ export default function AddPurchaseScreen({ store, session, onClose }: Props) {
 
         <Field label="Description">
           <input
+            ref={descRef}
             value={description}
             onChange={(e) => setDescription(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                noteRef.current?.focus()
+              }
+            }}
+            enterKeyHint="next"
             placeholder="What was it for?"
             className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 outline-none focus:border-teal-600 placeholder:text-slate-400"
           />
@@ -192,8 +215,10 @@ export default function AddPurchaseScreen({ store, session, onClose }: Props) {
 
         <Field label="Note (optional)">
           <input
+            ref={noteRef}
             value={note}
             onChange={(e) => setNote(e.target.value)}
+            enterKeyHint="done"
             placeholder="Add a note"
             className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 outline-none focus:border-teal-600 placeholder:text-slate-400"
           />
@@ -238,15 +263,14 @@ export default function AddPurchaseScreen({ store, session, onClose }: Props) {
 
       <div className="safe-bottom sticky bottom-0 border-t border-slate-200 bg-slate-50 px-4 pb-4 pt-3">
         <button
-          type="button"
-          onClick={save}
+          type="submit"
           disabled={!valid || busy}
           className="w-full rounded-xl bg-teal-700 py-3 text-sm font-medium text-white active:scale-[0.99] disabled:bg-slate-300"
         >
           {busy ? 'Saving…' : 'Save purchase'}
         </button>
       </div>
-    </div>
+    </form>
   )
 }
 
