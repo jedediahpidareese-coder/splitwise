@@ -3,7 +3,7 @@ import type { Expense, Settlement } from '../types'
 import type { ExpenseStore, Session } from '../data/storeTypes'
 import { nameFor, otherName } from '../lib/identity'
 import { formatCurrency } from '../lib/format'
-import { settledExpenseIds } from '../lib/balance'
+import { outstandingExpenses, remainingForExpense } from '../lib/balance'
 import BalanceCard from '../components/BalanceCard'
 import ExpenseRow from '../components/ExpenseRow'
 import SettlementRow from '../components/SettlementRow'
@@ -40,10 +40,9 @@ export default function HomeScreen({
     resetDemo,
   } = store
 
-  // Settled transactions drop off the active list; the settle-up entry stands
-  // in for them (and can be undone).
-  const settledIds = settledExpenseIds(settlements)
-  const outstanding = expenses.filter((e) => !settledIds.has(e.id))
+  // Fully-paid transactions drop off the active list; the settle-up entry
+  // stands in for them (and can be undone).
+  const outstanding = outstandingExpenses(expenses, settlements)
   const approved = settlements.filter((s) => s.status === 'approved')
   const { confirm } = useDialog()
 
@@ -128,6 +127,7 @@ export default function HomeScreen({
                   expense={it.expense}
                   session={session}
                   onDelete={deleteExpense}
+                  remaining={remainingForExpense(it.expense, settlements)}
                 />
               ) : (
                 <SettlementRow

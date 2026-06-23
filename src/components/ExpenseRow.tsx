@@ -2,6 +2,7 @@ import { Trash2 } from 'lucide-react'
 import type { Expense } from '../types'
 import type { Session } from '../data/storeTypes'
 import { categoryMeta } from '../lib/categories'
+import { shareOwedByNonPayer } from '../lib/balance'
 import { formatCurrency, formatDate } from '../lib/format'
 import { describeSplit } from '../lib/identity'
 import { useDialog } from './dialog'
@@ -10,11 +11,15 @@ interface Props {
   expense: Expense
   session: Session
   onDelete: (id: string) => void
+  remaining?: number // amount still owed on this transaction, if partially paid
 }
 
-export default function ExpenseRow({ expense, session, onDelete }: Props) {
+export default function ExpenseRow({ expense, session, onDelete, remaining }: Props) {
   const { Icon } = categoryMeta(expense.category)
   const { confirm } = useDialog()
+  const share = shareOwedByNonPayer(expense)
+  const partiallyPaid =
+    typeof remaining === 'number' && remaining > 0.005 && remaining < share - 0.005
 
   return (
     <div className="group flex items-center gap-3 border-t border-slate-100 py-2.5">
@@ -28,6 +33,12 @@ export default function ExpenseRow({ expense, session, onDelete }: Props) {
         </div>
         <div className="truncate text-xs text-slate-500">
           {describeSplit(expense, session)}
+          {partiallyPaid && (
+            <span className="text-amber-600">
+              {' '}
+              · {formatCurrency(remaining as number)} left
+            </span>
+          )}
         </div>
       </div>
 

@@ -15,6 +15,12 @@ export interface ReceiptInput {
   dataUrl: string
 }
 
+// A settle-up request, either against specific transactions (full or partial
+// per item) or a general amount toward the whole balance.
+export type SettleInput =
+  | { kind: 'items'; allocations: Record<string, number> }
+  | { kind: 'general'; amount: number }
+
 export interface NewExpenseInput {
   amount: number
   description: string
@@ -36,7 +42,7 @@ export interface ExpenseStore {
   error: string | null
   addExpense: (input: NewExpenseInput) => Promise<void>
   deleteExpense: (id: string) => Promise<void>
-  settleUp: (expenseIds: string[]) => Promise<void> // pending request for those items
+  settleUp: (input: SettleInput) => Promise<void> // pending request
   approveSettlement: (id: string) => Promise<void>
   cancelSettlement: (id: string) => Promise<void> // undo / decline
   resetDemo?: () => void // local mode only

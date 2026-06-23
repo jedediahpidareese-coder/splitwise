@@ -2,8 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 import type { Expense, Profile, Settlement } from '../types'
-import type { ExpenseStore, NewExpenseInput, Session } from './storeTypes'
-import { computeBalance, netOfExpenses } from '../lib/balance'
+import type { ExpenseStore, NewExpenseInput, SettleInput, Session } from './storeTypes'
+import { computeBalance, transferForAllocations } from '../lib/balance'
 import { formatCurrency } from '../lib/format'
 import { notifyOther } from '../lib/push'
 
@@ -29,6 +29,7 @@ interface SettlementRow {
   requested_by: string
   status: Settlement['status']
   expense_ids: string[] | null
+  allocations: Record<string, number> | null
   created_at: string
   approved_at: string | null
 }
@@ -61,6 +62,7 @@ function toSettlement(r: SettlementRow): Settlement {
     requestedBy: r.requested_by,
     status: r.status,
     expenseIds: r.expense_ids ?? [],
+    allocations: r.allocations ?? {},
     createdAt: r.created_at,
     approvedAt: r.approved_at ?? undefined,
   }
@@ -214,31 +216,54 @@ export function useCloudData(user: User): CloudData {
   )
 
   const settleUp = useCallback(
-    async (expenseIds: string[]) => {
+    async (input: SettleInput) => {
       if (settlements.some((s) => s.status === 'pending')) return
-      if (expenseIds.length === 0) return
       const other = profiles.find((p) => p.id !== userId)
       if (!other) return
-      const net = netOfExpenses(expenses, new Set(expenseIds), userId)
-      const fromId = net >= 0 ? other.id : userId
-      const toId = net >= 0 ? userId : other.id
+
+      let fromId = userId
+      let toId = other.id
+      let amount = 0
+      let allocations: Record<string, number> = {}
+      let itemCount = 0
+
+      if (input.kind === 'items') {
+        allocations = Object.fromEntries(
+          Object.entries(input.allocations).filter(([, v]) => v > 0),
+        )
+        itemCount = Object.keys(allocations).length
+        if (itemCount === 0) return
+        const t = transferForAllocations(expenses, allocations, userId, other.id)
+        fromId = t.fromId
+        toId = t.toId
+        amount = t.amount
+      } else {
+        amount = Math.round(input.amount * 100) / 100
+        if (amount <= 0) return
+        const bal = computeBalance(expenses, settlements, userId)
+        fromId = bal > 0 ? other.id : userId
+        toId = bal > 0 ? userId : other.id
+      }
+
       const { error: err } = await sb.from('settlements').insert({
-        amount: Math.abs(net),
+        amount,
         from_id: fromId,
         to_id: toId,
         requested_by: userId,
         status: 'pending',
-        expense_ids: expenseIds,
+        expense_ids: Object.keys(allocations),
+        allocations,
         created_by: userId,
       })
       if (err) throw err
       await refetch()
       const meName =
         profiles.find((p) => p.id === userId)?.displayName ?? 'Your partner'
-      const n = expenseIds.length
+      const what =
+        itemCount > 0 ? `${itemCount} item${itemCount === 1 ? '' : 's'}` : 'the balance'
       void notifyOther(
         'SplitWise',
-        `${meName} wants to settle up ${n} item${n === 1 ? '' : 's'} · ${formatCurrency(Math.abs(net))}`,
+        `${meName} wants to settle up ${what} · ${formatCurrency(amount)}`,
       )
     },
     [sb, userId, expenses, settlements, profiles, refetch],

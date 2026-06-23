@@ -40,17 +40,21 @@ export interface Expense {
 //   approved -> both agreed; it now zeroes out what was owed
 export type SettlementStatus = 'pending' | 'approved'
 
-// A payback that clears a chosen SET of transactions (e.g. "Dani paid you
-// $42.50 for these 3 items"). expenseIds lists exactly which expenses it
-// settles; once approved, those expenses drop off the balance.
+// A payment. Two flavors:
+//   • itemized  -> `allocations` maps expenseId -> amount paid toward it
+//     (full or partial per transaction). `expenseIds` is kept for older rows.
+//   • general   -> empty allocations; just pays `amount` toward the overall
+//     balance.
+// `amount` is the net money that changes hands (from -> to), in either case.
 export interface Settlement {
   id: string
-  amount: number // net that changes hands for the selected items
+  amount: number
   fromId: PersonId // who hands over the money
   toId: PersonId // who receives it
   requestedBy: PersonId // who tapped "Settle up"
   status: SettlementStatus
-  expenseIds: string[] // the transactions being settled
+  expenseIds: string[] // legacy: fully-settled transactions (older rows)
+  allocations: Record<string, number> // expenseId -> amount paid toward it
   createdAt: string
   approvedAt?: string
 }

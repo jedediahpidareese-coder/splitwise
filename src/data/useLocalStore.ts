@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { Expense, Settlement } from '../types'
 import type { ExpenseStore, NewExpenseInput, Session } from './storeTypes'
-import { computeBalance, netOfExpenses } from '../lib/balance'
+import { computeBalance, transferForAllocations } from '../lib/balance'
+import type { SettleInput } from './storeTypes'
 import {
   LOCAL_ME,
   LOCAL_OTHER,
@@ -81,20 +82,48 @@ export function useLocalStore(): { store: ExpenseStore; session: Session } {
     }))
   }, [])
 
-  const settleUp = useCallback(async (expenseIds: string[]) => {
+  const settleUp = useCallback(async (input: SettleInput) => {
     setState((s) => {
       // Don't allow a second request while one is already pending.
       if (s.settlements.some((x) => x.status === 'pending')) return s
-      if (expenseIds.length === 0) return s
-      const net = netOfExpenses(s.expenses, new Set(expenseIds), LOCAL_ME.id)
+
+      let fromId = LOCAL_ME.id
+      let toId = LOCAL_OTHER.id
+      let amount = 0
+      let allocations: Record<string, number> = {}
+
+      if (input.kind === 'items') {
+        allocations = Object.fromEntries(
+          Object.entries(input.allocations).filter(([, v]) => v > 0),
+        )
+        if (Object.keys(allocations).length === 0) return s
+        const t = transferForAllocations(
+          s.expenses,
+          allocations,
+          LOCAL_ME.id,
+          LOCAL_OTHER.id,
+        )
+        fromId = t.fromId
+        toId = t.toId
+        amount = t.amount
+      } else {
+        amount = Math.round(input.amount * 100) / 100
+        if (amount <= 0) return s
+        const bal = computeBalance(s.expenses, s.settlements, LOCAL_ME.id)
+        // The debtor pays the creditor.
+        fromId = bal > 0 ? LOCAL_OTHER.id : LOCAL_ME.id
+        toId = bal > 0 ? LOCAL_ME.id : LOCAL_OTHER.id
+      }
+
       const settlement: Settlement = {
         id: newId(),
-        amount: Math.abs(net),
-        fromId: net >= 0 ? LOCAL_OTHER.id : LOCAL_ME.id,
-        toId: net >= 0 ? LOCAL_ME.id : LOCAL_OTHER.id,
+        amount,
+        fromId,
+        toId,
         requestedBy: LOCAL_ME.id,
         status: 'pending',
-        expenseIds,
+        expenseIds: Object.keys(allocations),
+        allocations,
         createdAt: new Date().toISOString(),
       }
       return { ...s, settlements: [settlement, ...s.settlements] }
