@@ -1,9 +1,11 @@
+import { useState } from 'react'
 import { Clock, LogOut, Plus, RefreshCw } from 'lucide-react'
-import type { Expense, Settlement } from '../types'
+import type { Category, Expense, Settlement } from '../types'
 import type { ExpenseStore, Session } from '../data/storeTypes'
 import { nameFor, otherName } from '../lib/identity'
 import { formatCurrency } from '../lib/format'
 import { outstandingExpenses, remainingForExpense } from '../lib/balance'
+import { CATEGORIES } from '../lib/categories'
 import BalanceCard from '../components/BalanceCard'
 import ExpenseRow from '../components/ExpenseRow'
 import SettlementRow from '../components/SettlementRow'
@@ -15,6 +17,7 @@ interface Props {
   session: Session
   onAdd: () => void
   onSettleUp: () => void
+  onOpenExpense: (id: string) => void
   onSignOut?: () => void
 }
 
@@ -27,6 +30,7 @@ export default function HomeScreen({
   session,
   onAdd,
   onSettleUp,
+  onOpenExpense,
   onSignOut,
 }: Props) {
   const {
@@ -45,14 +49,32 @@ export default function HomeScreen({
   const outstanding = outstandingExpenses(expenses, settlements)
   const approved = settlements.filter((s) => s.status === 'approved')
   const { confirm } = useDialog()
+  const [filter, setFilter] = useState<Category | 'all'>('all')
+
+  // Categories that actually appear (in canonical order) for the filter chips.
+  const presentCategories = CATEGORIES.filter((c) =>
+    outstanding.some((e) => e.category === c.key),
+  )
+  const activeFilter =
+    filter !== 'all' && !presentCategories.some((c) => c.key === filter)
+      ? 'all'
+      : filter
+
+  const visibleExpenses =
+    activeFilter === 'all'
+      ? outstanding
+      : outstanding.filter((e) => e.category === activeFilter)
 
   const items: Item[] = [
-    ...outstanding.map((e): Item => ({ kind: 'expense', date: e.createdAt, expense: e })),
-    ...approved.map((s): Item => ({
-      kind: 'settlement',
-      date: s.approvedAt ?? s.createdAt,
-      settlement: s,
-    })),
+    ...visibleExpenses.map((e): Item => ({ kind: 'expense', date: e.createdAt, expense: e })),
+    // Settle-up entries aren't tied to a category, so only show them under "All".
+    ...(activeFilter === 'all'
+      ? approved.map((s): Item => ({
+          kind: 'settlement',
+          date: s.approvedAt ?? s.createdAt,
+          settlement: s,
+        }))
+      : []),
   ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
   return (
@@ -117,6 +139,28 @@ export default function HomeScreen({
 
         <h2 className="mb-1 mt-6 px-1 text-sm text-slate-500">Recent</h2>
 
+        {presentCategories.length > 0 && (
+          <div className="mb-2 flex gap-2 overflow-x-auto pb-1">
+            {[{ key: 'all' as const, label: 'All' }, ...presentCategories].map((c) => {
+              const on = activeFilter === c.key
+              return (
+                <button
+                  key={c.key}
+                  type="button"
+                  onClick={() => setFilter(c.key)}
+                  className={`flex-shrink-0 rounded-full px-3 py-1 text-xs font-medium ${
+                    on
+                      ? 'bg-slate-900 text-white'
+                      : 'border border-slate-300 bg-white text-slate-600'
+                  }`}
+                >
+                  {c.label}
+                </button>
+              )
+            })}
+          </div>
+        )}
+
         {items.length === 0 ? (
           <p className="px-1 py-8 text-center text-sm text-slate-400">
             No purchases yet. Tap “Add purchase” to start.
@@ -130,6 +174,7 @@ export default function HomeScreen({
                   expense={it.expense}
                   session={session}
                   onDelete={deleteExpense}
+                  onOpen={onOpenExpense}
                   remaining={remainingForExpense(it.expense, settlements)}
                 />
               ) : (
